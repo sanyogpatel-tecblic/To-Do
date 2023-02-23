@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	"github.com/sanyogpatel-tecblic/API-Simple/handlers"
+	"github.com/sanyogpatel-tecblic/To-Do/handlers"
 )
 
 func Routes() http.Handler {

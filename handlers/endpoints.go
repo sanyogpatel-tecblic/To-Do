@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/sanyogpatel-tecblic/API-Simple/model"
+	"github.com/sanyogpatel-tecblic/To-Do/model"
 )
 
 var DB *sql.DB

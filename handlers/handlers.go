@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	driver "github.com/sanyogpatel-tecblic/API-Simple/Driver"
-	"github.com/sanyogpatel-tecblic/API-Simple/config"
+	driver "github.com/sanyogpatel-tecblic/To-Do/Driver"
+	"github.com/sanyogpatel-tecblic/To-Do/config"
 )
 
 var Repo *Repository
