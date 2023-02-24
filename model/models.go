@@ -1,10 +1,9 @@
 package model
 
-// import "go.mongodb.org/mongo-driver/bson/primitive"
+// "go.starlark.net/lib/time"
 
-type Book struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	Author      string `json:"author"`
-	Description string `json:"description"`
+type Task struct {
+	ID     int    `json:"id"`
+	Tasks  string `json:"tasks"`
+	UserID int    `json:"userid"`
 }
