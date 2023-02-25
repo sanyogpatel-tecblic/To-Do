@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
-	"github.com/sanyogpatel-tecblic/To-Do/model"
+	"github.com/sanyogpatel-tecblic/To-Do/pkg/model"
 )
 
 var DB *sql.DB
