@@ -3,10 +3,10 @@ package render
 import (
 	"bytes"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"path/filepath"
-	"text/template"
 
 	"github.com/sanyogpatel-tecblic/To-Do/pkg/config"
 	"github.com/sanyogpatel-tecblic/To-Do/pkg/model"
@@ -16,15 +16,11 @@ var functions = template.FuncMap{}
 
 var app *config.AppConfig
 
-func NewTemplates(a *config.AppConfig) {
-	app = a
-}
-
 func AddDefaultData(td *model.TemplateData) *model.TemplateData {
 	return td
 }
 
-func RenderTemplate(w http.ResponseWriter, r *http.Request, tmpl string, td *model.TemplateData) error {
+func Template(w http.ResponseWriter, r *http.Request, tmpl string, td *model.TemplateData) error {
 	var tc map[string]*template.Template
 
 	if app.UseCache {
@@ -49,7 +45,7 @@ func RenderTemplate(w http.ResponseWriter, r *http.Request, tmpl string, td *mod
 	if err != nil {
 		fmt.Println("error writing template to browser", err)
 	}
-
+	return nil
 }
 
 // CreateTemplateCache creates a template cache as a map
@@ -68,21 +64,17 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 		if err != nil {
 			return myCache, err
 		}
-
 		matches, err := filepath.Glob("./templates/*.layout.tmpl")
 		if err != nil {
 			return myCache, err
 		}
-
 		if len(matches) > 0 {
 			ts, err = ts.ParseGlob("./templates/*.layout.tmpl")
 			if err != nil {
 				return myCache, err
 			}
 		}
-
 		myCache[name] = ts
 	}
-
 	return myCache, nil
 }

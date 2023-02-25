@@ -10,10 +10,26 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
+	"github.com/sanyogpatel-tecblic/To-Do/pkg/config"
 	"github.com/sanyogpatel-tecblic/To-Do/pkg/model"
 )
 
 var DB *sql.DB
+var Repo *Repository
+
+// Repository is the repository type
+type Repository struct {
+	App *config.AppConfig
+}
+
+func NewRepo(a *config.AppConfig) *Repository {
+	return &Repository{
+		App: a,
+	}
+}
+func NewHandlers(r *Repository) {
+	Repo = r
+}
 
 func main() {
 	var err error
@@ -25,7 +41,7 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	router.HandleFunc("/tasks", GetAllTasks).Methods("GET")
+	router.HandleFunc("/tasks", Repo.GetAllTasks).Methods("GET")
 	router.HandleFunc("/tasks/{id}", GetTask).Methods("GET")
 	router.HandleFunc("/donetasks", GetDoneTasks).Methods("GET")
 	router.HandleFunc("/tasks", CreateTask).Methods("POST")
@@ -37,7 +53,8 @@ func main() {
 	fmt.Println("Listening at port 8010 ...")
 	defer DB.Close()
 }
-func GetAllTasks(w http.ResponseWriter, r *http.Request) {
+
+func (m *Repository) GetAllTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var tasks []model.Task
 	rows, err := DB.Query("SELECT id,tasks FROM todo")
@@ -54,7 +71,28 @@ func GetAllTasks(w http.ResponseWriter, r *http.Request) {
 		tasks = append(tasks, task)
 	}
 	json.NewEncoder(w).Encode(tasks)
+
+	//Template(w, r, "home.page.tmpl", &TemplateData{})
 }
+
+//	func GetAllTasks(w http.ResponseWriter, r *http.Request) {
+//		w.Header().Set("Content-Type", "application/json")
+//		var tasks []model.Task
+//		rows, err := DB.Query("SELECT id,tasks FROM todo")
+//		if err != nil {
+//			log.Fatal(err)
+//		}
+//		defer rows.Close()
+//		for rows.Next() {
+//			var task model.Task
+//			err := rows.Scan(&task.ID, &task.Tasks)
+//			if err != nil {
+//				log.Fatal(err)
+//			}
+//			tasks = append(tasks, task)
+//		}
+//		json.NewEncoder(w).Encode(tasks)
+//	}
 func GetDoneTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var tasks []model.Task
@@ -119,7 +157,6 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(task)
 }
-
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	params := mux.Vars(r)
