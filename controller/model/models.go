@@ -3,8 +3,8 @@ package model
 // "go.starlark.net/lib/time"
 
 type Task struct {
-	ID     int    `json:"id"`
-	Tasks  string `json:"tasks"`
+	ID     int    `json:"id" validate:"required"`
+	Tasks  string `json:"tasks" validate:"required"`
 	UserID int    `json:"userid"`
 }
 
