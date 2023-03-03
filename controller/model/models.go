@@ -3,9 +3,10 @@ package model
 // "go.starlark.net/lib/time"
 
 type Task struct {
-	ID     int    `json:"id" validate:"required"`
-	Tasks  string `json:"tasks" validate:"required"`
-	UserID int    `json:"userid"`
+	ID         int    `json:"id" validate:"required"`
+	Tasks      string `json:"tasks" validate:"required"`
+	UserID     int    `json:"userid"`
+	Statuscode int    `json:"status"`
 }
 
 type User struct {

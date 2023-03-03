@@ -11,19 +11,11 @@ import (
 	"github.com/sanyogpatel-tecblic/To-Do/controller/model"
 )
 
-type Response struct {
-	Statuscode int         `json:"status"`
-	Message    string      `json:"message,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
+type APIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
-func GenerateResponse(statusCode int, message string, data interface{}) Response {
-	return Response{
-		Statuscode: statusCode,
-		Message:    message,
-		Data:       data,
-	}
-}
 func CreateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -31,7 +23,22 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 		var task model.Task
 		err := json.NewDecoder(r.Body).Decode(&task)
 		if err != nil {
-			http.Error(w, "Error parsing request body", http.StatusBadRequest)
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Error parsing the body: " + err.Error(),
+			}
+
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		if task.Tasks == "" {
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Task is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
 			return
 		}
 		_, err = db.Exec("INSERT INTO todo (tasks) VALUES ($1)", task.Tasks)
@@ -39,7 +46,16 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Error parsing request body", http.StatusBadRequest)
 			return
 		}
-		json.NewEncoder(w).Encode(task)
+		if err == nil {
+			task = model.Task{
+				ID:         task.ID,
+				Tasks:      task.Tasks,
+				Statuscode: http.StatusCreated,
+			}
+			w.WriteHeader(http.StatusCreated)
+
+			json.NewEncoder(w).Encode(task)
+		}
 	}
 }
 func GetAllTasks(DB *sql.DB) http.HandlerFunc {
@@ -49,6 +65,7 @@ func GetAllTasks(DB *sql.DB) http.HandlerFunc {
 		// var row_var error
 
 		rows, err := DB.Query("SELECT id,tasks FROM todo")
+
 		if err != nil {
 			http.Error(w, "Error parsing request body", http.StatusBadRequest)
 			return
@@ -79,8 +96,13 @@ func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 			var task model.Task
 			err := rows.Scan(&task.ID, &task.Tasks)
 			if err != nil {
-				log.Fatal(err)
-
+				apierror := APIError{
+					Code:    http.StatusBadRequest,
+					Message: "You have not done any tasks yet!",
+				}
+				w.WriteHeader(apierror.Code)
+				json.NewEncoder(w).Encode(apierror)
+				return
 			}
 			tasks = append(tasks, task)
 		}
@@ -99,11 +121,26 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 		}
 		var task model.Task
 		row := db.QueryRow("SELECT id,tasks FROM todo WHERE id=$1", id)
+
 		err = row.Scan(&task.ID, &task.Tasks)
 		if err != nil {
-			log.Fatal(err)
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "No such rows with provided id is available!",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
 		}
-		json.NewEncoder(w).Encode(task)
+		if err == nil {
+			task = model.Task{
+				ID:         task.ID,
+				Tasks:      task.Tasks,
+				Statuscode: http.StatusAccepted,
+			}
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(task)
+		}
 	}
 }
 
