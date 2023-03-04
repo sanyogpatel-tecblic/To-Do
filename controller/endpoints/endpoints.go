@@ -1,11 +1,13 @@
 package endpoints
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/sanyogpatel-tecblic/To-Do/controller/model"
@@ -16,12 +18,17 @@ type APIError struct {
 	Message string `json:"message"`
 }
 
+var newId int
+
 func CreateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
 
 		w.Header().Set("Content-Type", "application/json")
 		var task model.Task
 		err := json.NewDecoder(r.Body).Decode(&task)
+		json.NewDecoder(r.Body).Decode(&task.ID)
 		if err != nil {
 			apierror := APIError{
 				Code:    http.StatusBadRequest,
@@ -41,19 +48,19 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(apierror)
 			return
 		}
-		_, err = db.Exec("INSERT INTO todo (tasks) VALUES ($1)", task.Tasks)
+		err = db.QueryRowContext(ctx, "INSERT INTO todo (tasks) VALUES ($1)", task.Tasks).Scan(&newId)
+
 		if err != nil {
 			http.Error(w, "Error parsing request body", http.StatusBadRequest)
 			return
 		}
 		if err == nil {
 			task = model.Task{
-				ID:         task.ID,
+				ID:         newId,
 				Tasks:      task.Tasks,
 				Statuscode: http.StatusCreated,
 			}
 			w.WriteHeader(http.StatusCreated)
-
 			json.NewEncoder(w).Encode(task)
 		}
 	}
@@ -92,25 +99,24 @@ func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		// var task model.Task
 		for rows.Next() {
 			var task model.Task
-			err := rows.Scan(&task.ID, &task.Tasks)
+			err = rows.Scan(&task.ID, &task.Tasks)
 			if err != nil {
-				apierror := APIError{
-					Code:    http.StatusBadRequest,
-					Message: "You have not done any tasks yet!",
+				if err != nil {
+					log.Println(err)
 				}
-				w.WriteHeader(apierror.Code)
-				json.NewEncoder(w).Encode(apierror)
 				return
 			}
 			tasks = append(tasks, task)
 		}
-		if err := json.NewEncoder(w).Encode(tasks); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		}
+		w.WriteHeader(http.StatusAccepted)
+		json.NewEncoder(w).Encode(tasks)
 	}
 }
+
 func GetTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -143,7 +149,6 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 		}
 	}
 }
-
 func UpdateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -165,21 +170,26 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(task)
 	}
 }
-
 func DeleteTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+
 		w.Header().Set("Content-Type", "application/json")
 		params := mux.Vars(r)
 		id, err := strconv.Atoi(params["id"])
+
 		if err != nil {
 			log.Fatal(err)
 		}
-		var task model.Task
-		_, err = db.Exec("delete from todo where id=$1", id)
+		// var task model.Task
+		_, err = db.ExecContext(ctx, "delete from todo where id=$1", id)
 		if err != nil {
-			log.Fatal(err)
+			log.Println("nnn")
 		}
-		json.NewEncoder(w).Encode(task)
+		if err == nil {
+			w.WriteHeader(http.StatusOK)
+		}
 	}
 }
 
