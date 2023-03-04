@@ -132,7 +132,7 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			apierror := APIError{
 				Code:    http.StatusBadRequest,
-				Message: "No such rows with provided id is available!",
+				Message: "No such rows with provided id is available!!",
 			}
 			w.WriteHeader(apierror.Code)
 			json.NewEncoder(w).Encode(apierror)
