@@ -67,6 +67,8 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 		}
 	}
 }
+
+// Fetch the all tasks
 func GetAllTasks(DB *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -93,6 +95,8 @@ func GetAllTasks(DB *sql.DB) http.HandlerFunc {
 		// defer rows.Close()
 	}
 }
+
+// Get all done tasks
 func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -118,6 +122,8 @@ func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 		}
 	}
 }
+
+// Get task by ID
 func GetTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -149,6 +155,8 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 		}
 	}
 }
+
+// Update task
 func UpdateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -208,6 +216,8 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 		}
 	}
 }
+
+// Delete the task
 func DeleteTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -241,6 +251,8 @@ func DeleteTask(db *sql.DB) http.HandlerFunc {
 		fmt.Fprintf(w, "task deleted successfully!")
 	}
 }
+
+// marks as done the task
 func MarkAsDone(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -283,18 +295,45 @@ func MarkAsDone(db *sql.DB) http.HandlerFunc {
 // ------------------------------------Users---------------------------------------//
 func RegisterUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
 		w.Header().Set("Content-Type", "application/json")
 
 		var user model.User
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
-			log.Fatal(err)
-		}
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Error parsing the body: " + err.Error(),
+			}
 
-		_, err = db.Exec("INSERT INTO users (username,password) VALUES ($1,$2)", user.UserName, user.Password)
-		if err != nil {
-			log.Fatal(err)
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
 		}
+		if user.UserName == "" {
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "username is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		if user.Password == "" {
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "password is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		_, err = db.Exec("INSERT INTO users (username,password) VALUES ($1,$2) returning id", user.UserName, user.Password)
+		if err != nil {
+			fmt.Fprintf(w, "Error: %s", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(user)
 	}
 }

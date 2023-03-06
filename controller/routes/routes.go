@@ -32,7 +32,7 @@ func Routes(app *config.AppConfig) http.Handler {
 
 	//----------	mux.Get("/tasks", endpoints.GetAllTasks(db))
 	mux.Get("/users", endpoints.GetAllUsers(db))
-	mux.Get("/addusers", endpoints.RegisterUsers(db))
+	mux.Post("/users", endpoints.RegisterUsers(db))
 	mux.Post("/updateusers/{id}", endpoints.UpdateUser(db))
 	mux.Put("/users/login", endpoints.Login(db))
 	mux.Delete("/deleteusers/{id}", endpoints.DeleteUser(db))
