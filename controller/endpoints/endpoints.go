@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/go-chi/chi"
 	"github.com/gorilla/mux"
 	"github.com/sanyogpatel-tecblic/To-Do/controller/model"
 )
@@ -48,10 +50,10 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(apierror)
 			return
 		}
-		err = db.QueryRowContext(ctx, "INSERT INTO todo (tasks) VALUES ($1)", task.Tasks).Scan(&newId)
+		err = db.QueryRowContext(ctx, "INSERT INTO todo (tasks) VALUES ($1) returning id", task.Tasks).Scan(&newId)
 
 		if err != nil {
-			http.Error(w, "Error parsing request body", http.StatusBadRequest)
+			http.Error(w, "Error parsing request body 2", http.StatusBadRequest)
 			return
 		}
 		if err == nil {
@@ -97,7 +99,9 @@ func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 		var tasks []model.Task
 		rows, err := DB.Query("select id,tasks from todo where done=1")
 		if err != nil {
-			log.Fatal(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error while fetching the task: %s", err.Error())
+			return
 		}
 
 		// var task model.Task
@@ -105,25 +109,21 @@ func GetDoneTasks(DB *sql.DB) http.HandlerFunc {
 			var task model.Task
 			err = rows.Scan(&task.ID, &task.Tasks)
 			if err != nil {
-				if err != nil {
-					log.Println(err)
-				}
+				log.Fatal(err)
 				return
 			}
 			tasks = append(tasks, task)
+			w.WriteHeader(http.StatusAccepted)
+			json.NewEncoder(w).Encode(tasks)
 		}
-		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(tasks)
 	}
 }
-
 func GetTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		params := mux.Vars(r)
-		id, err := strconv.Atoi(params["id"])
+		id, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		var task model.Task
 		row := db.QueryRow("SELECT id,tasks FROM todo WHERE id=$1", id)
@@ -152,52 +152,103 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 func UpdateTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		param := mux.Vars(r)
-
-		id, err := strconv.Atoi(param["id"])
-
+		TaskID, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		var task model.Task
 
 		json.NewDecoder(r.Body).Decode(&task)
-
-		_, err = db.Exec("update todo set tasks=$1 where id=$2", task.Tasks, id)
 		if err != nil {
-			log.Fatal(err)
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Error parsing the body: " + err.Error(),
+			}
+
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
 		}
-		json.NewEncoder(w).Encode(task)
+		if task.Tasks == "" {
+			apierror := APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Task is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		result, err := db.Exec("update todo set tasks=$1 where id=$2", task.Tasks, TaskID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error deleting task: %s", err.Error())
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error getting rows affected: %s", err.Error())
+			return
+		}
+		if rowsAffected == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "Task not found with ID: %s", TaskID)
+			return
+		}
+		if err == nil {
+			// id := strconv.Itoa(TaskID)
+			task = model.Task{
+				ID:         TaskID,
+				Tasks:      task.Tasks,
+				Statuscode: http.StatusOK,
+			}
+			// response := map[string]string{"id": id, "message": "User updated successfully", "tasks": task.Tasks, "statuscode": http.StatusText(http.StatusOK)}
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(http.StatusOK)
+			json.NewEncoder(w).Encode(task)
+		}
 	}
 }
 func DeleteTask(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
+		// ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		// defer cancel()
 
 		w.Header().Set("Content-Type", "application/json")
-		params := mux.Vars(r)
-		id, err := strconv.Atoi(params["id"])
-
+		TaskID, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		// var task model.Task
-		_, err = db.ExecContext(ctx, "delete from todo where id=$1", id)
+		// query := fmt.Sprintf("delete from todo where id=$1", TaskID)
+		result, err := db.Exec("delete from todo where id=$1", TaskID)
 		if err != nil {
-			log.Println("nnn")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error deleting book: %s", err.Error())
+			return
 		}
-		if err == nil {
-			w.WriteHeader(http.StatusOK)
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error getting rows affected: %s", err.Error())
+			return
 		}
+		if rowsAffected == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "task not found with ID: %s", TaskID)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "task deleted successfully!")
 	}
 }
-
 func MarkAsDone(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		params := mux.Vars(r)
-		id := params["id"]
+		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+		if err != nil {
+			log.Println(err)
+		}
 		res, err := db.Exec("update todo set done=1 where id=$1", id)
 		if err != nil {
 			log.Fatal(err)
