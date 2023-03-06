@@ -164,7 +164,6 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 				Code:    http.StatusBadRequest,
 				Message: "Error parsing the body: " + err.Error(),
 			}
-
 			w.WriteHeader(apierror.Code)
 			json.NewEncoder(w).Encode(apierror)
 			return
@@ -224,7 +223,7 @@ func DeleteTask(db *sql.DB) http.HandlerFunc {
 		result, err := db.Exec("delete from todo where id=$1", TaskID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Error deleting book: %s", err.Error())
+			fmt.Fprintf(w, "Error deleting task: %s", err.Error())
 			return
 		}
 		rowsAffected, err := result.RowsAffected()
@@ -249,11 +248,34 @@ func MarkAsDone(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Println(err)
 		}
+		var task model.Task
+
 		res, err := db.Exec("update todo set done=1 where id=$1", id)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
-		json.NewEncoder(w).Encode(res)
+		rowsAffected, err := res.RowsAffected()
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error getting rows affected: %s", err.Error())
+			return
+		}
+		if rowsAffected == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "Task not found with ID: %s", id)
+			return
+		}
+		if err == nil {
+			task = model.Task{
+				ID:         id,
+				Tasks:      task.Tasks,
+				Statuscode: http.StatusOK,
+			}
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprintf(w, "Task Done! where id is: %s", id)
+			json.NewEncoder(w).Encode("success")
+		}
 	}
 }
 
