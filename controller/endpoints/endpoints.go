@@ -15,11 +15,6 @@ import (
 	"github.com/sanyogpatel-tecblic/To-Do/controller/model"
 )
 
-type APIError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
 var newId int
 
 func CreateTask(db *sql.DB) http.HandlerFunc {
@@ -32,7 +27,7 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 		err := json.NewDecoder(r.Body).Decode(&task)
 		json.NewDecoder(r.Body).Decode(&task.ID)
 		if err != nil {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "Error parsing the body: " + err.Error(),
 			}
@@ -42,7 +37,7 @@ func CreateTask(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		if task.Tasks == "" {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "Task is required",
 			}
@@ -136,7 +131,7 @@ func GetTask(db *sql.DB) http.HandlerFunc {
 
 		err = row.Scan(&task.ID, &task.Tasks)
 		if err != nil {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "No such rows with provided id is available!!",
 			}
@@ -168,7 +163,7 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 
 		json.NewDecoder(r.Body).Decode(&task)
 		if err != nil {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "Error parsing the body: " + err.Error(),
 			}
@@ -177,7 +172,7 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		if task.Tasks == "" {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "Task is required",
 			}
@@ -188,7 +183,7 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 		result, err := db.Exec("update todo set tasks=$1 where id=$2", task.Tasks, TaskID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Error deleting task: %s", err.Error())
+			fmt.Fprintf(w, "Error updating task: %s", err.Error())
 			return
 		}
 		rowsAffected, err := result.RowsAffected()
@@ -293,6 +288,8 @@ func MarkAsDone(db *sql.DB) http.HandlerFunc {
 
 // ---------------------------------------------------------------------------------//
 // ------------------------------------Users---------------------------------------//
+var newID int
+
 func RegisterUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -302,7 +299,7 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 		var user model.User
 		err := json.NewDecoder(r.Body).Decode(&user)
 		if err != nil {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "Error parsing the body: " + err.Error(),
 			}
@@ -312,7 +309,7 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		if user.UserName == "" {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "username is required",
 			}
@@ -321,7 +318,7 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		if user.Password == "" {
-			apierror := APIError{
+			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
 				Message: "password is required",
 			}
@@ -329,9 +326,17 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(apierror)
 			return
 		}
-		_, err = db.Exec("INSERT INTO users (username,password) VALUES ($1,$2) returning id", user.UserName, user.Password)
+		err = db.QueryRowContext(ctx, "INSERT INTO users (username,password) VALUES ($1,$2) returning id", user.UserName, user.Password).Scan(&newID)
 		if err != nil {
 			fmt.Fprintf(w, "Error: %s", err)
+		}
+		if err == nil {
+			user = model.User{
+				ID:         newID,
+				UserName:   user.UserName,
+				Password:   user.Password,
+				Statuscode: http.StatusOK,
+			}
 		}
 		w.WriteHeader(http.StatusAccepted)
 		json.NewEncoder(w).Encode(user)
@@ -363,35 +368,115 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		var user model.User
-		param := mux.Vars(r)
-		id, err := strconv.Atoi(param["id"])
+		UserID, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 		json.NewDecoder(r.Body).Decode(&user)
-		update, _ := db.Exec("update users set username=$1,password=$2 where id=$3", user.UserName, user.Password, id)
-
-		json.NewEncoder(w).Encode(update)
-	}
-}
-func Login(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		var users []model.User
-		var user model.User
-		if r.Body == nil {
-			http.Error(w, "Request body must not be empty", http.StatusBadRequest)
+		if err != nil {
+			apierror := model.APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Error parsing the body: " + err.Error(),
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
 			return
 		}
-		json.NewDecoder(r.Body).Decode(&user)
-
-		rows, _ := db.Query("select username,password from users where username=$1 and password=$2", user.UserName, user.Password)
-
-		for rows.Next() {
-			rows.Scan(&user.UserName, &user.Password)
-			users = append(users, user)
+		if user.UserName == "" && user.Password == "" {
+			apierror := model.APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Username is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
 		}
-		json.NewEncoder(w).Encode(users)
+		if user.Password == "" {
+			apierror := model.APIError{
+				Code:    http.StatusBadRequest,
+				Message: "password is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		result, _ := db.Exec("update users set username=$1,password=$2 where id=$3", user.UserName, user.Password, UserID)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error updating the users: %s", err.Error())
+			return
+		}
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "Error getting rows affected: %s", err.Error())
+			return
+		}
+		if rowsAffected == 0 {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "user not found with ID: %s", UserID)
+			return
+		}
+
+		if err == nil {
+			user = model.User{
+				ID:         UserID,
+				UserName:   user.UserName,
+				Password:   user.Password,
+				Statuscode: http.StatusOK,
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(user)
+	}
+}
+
+// var newdi int
+
+func Login(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		var creds model.Credentials
+		err := json.NewDecoder(r.Body).Decode(&creds)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+		if creds.Username == "" {
+			apierror := model.APIError{
+				Code:    http.StatusBadRequest,
+				Message: "Username is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		if creds.Password == "" {
+			apierror := model.APIError{
+				Code:    http.StatusBadRequest,
+				Message: "password is required",
+			}
+			w.WriteHeader(apierror.Code)
+			json.NewEncoder(w).Encode(apierror)
+			return
+		}
+		var user model.User
+		err = db.QueryRow("SELECT id, username, password FROM users WHERE username = $1 AND password = $2", creds.Username, creds.Password).Scan(&user.ID, &user.UserName, &user.Password)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, "Logged in successfully")
+
 	}
 }
 func DeleteUser(db *sql.DB) http.HandlerFunc {
