@@ -165,7 +165,7 @@ func UpdateTask(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			apierror := model.APIError{
 				Code:    http.StatusBadRequest,
-				Message: "Error parsing the body: " + err.Error(),
+				Message: "Error: " + err.Error(),
 			}
 			w.WriteHeader(apierror.Code)
 			json.NewEncoder(w).Encode(apierror)
@@ -303,7 +303,6 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 				Code:    http.StatusBadRequest,
 				Message: "Error parsing the body: " + err.Error(),
 			}
-
 			w.WriteHeader(apierror.Code)
 			json.NewEncoder(w).Encode(apierror)
 			return
@@ -417,7 +416,6 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 			fmt.Fprintf(w, "user not found with ID: %s", UserID)
 			return
 		}
-
 		if err == nil {
 			user = model.User{
 				ID:         UserID,
@@ -476,7 +474,6 @@ func Login(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		fmt.Fprint(w, "Logged in successfully")
-
 	}
 }
 func DeleteUser(db *sql.DB) http.HandlerFunc {
