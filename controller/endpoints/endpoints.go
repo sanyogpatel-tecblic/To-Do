@@ -402,7 +402,7 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 		result, _ := db.Exec("update users set username=$1,password=$2 where id=$3", user.UserName, user.Password, UserID)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "Error updating the users: %s", err.Error())
+			fmt.Fprintf(w, "Error updating the user: %s", err.Error())
 			return
 		}
 		rowsAffected, err := result.RowsAffected()
