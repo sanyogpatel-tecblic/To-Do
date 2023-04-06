@@ -325,16 +325,16 @@ func RegisterUsers(db *sql.DB) http.HandlerFunc {
 			json.NewEncoder(w).Encode(apierror)
 			return
 		}
-		err = db.QueryRowContext(ctx, "INSERT INTO users (username,password) VALUES ($1,$2) returning id", user.UserName, user.Password).Scan(&newID)
+		err = db.QueryRowContext(ctx, "INSERT INTO users (username,password,email) VALUES ($1,$2,$3) returning id", user.UserName, user.Password, user.Email).Scan(&newID)
 		if err != nil {
 			fmt.Fprintf(w, "Error: %s", err)
 		}
 		if err == nil {
 			user = model.User{
-				ID:         newID,
-				UserName:   user.UserName,
-				Password:   user.Password,
-				Statuscode: http.StatusOK,
+				ID:       newID,
+				UserName: user.UserName,
+				Password: user.Password,
+				// Statuscode: http.StatusOK,
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
@@ -346,7 +346,7 @@ func GetAllUsers(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		var users []model.User
 
-		rows, err := db.Query("select * from users")
+		rows, err := db.Query("select id,username,password,email from users")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -354,7 +354,7 @@ func GetAllUsers(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var user model.User
 
-			rowscn := rows.Scan(&user.ID, &user.UserName, &user.Password)
+			rowscn := rows.Scan(&user.ID, &user.UserName, &user.Password, &user.Email)
 			if rowscn != nil {
 				log.Fatal(rowscn)
 			}
@@ -418,10 +418,10 @@ func UpdateUser(db *sql.DB) http.HandlerFunc {
 		}
 		if err == nil {
 			user = model.User{
-				ID:         UserID,
-				UserName:   user.UserName,
-				Password:   user.Password,
-				Statuscode: http.StatusOK,
+				ID:       UserID,
+				UserName: user.UserName,
+				Password: user.Password,
+				// Statuscode: http.StatusOK,
 			}
 		}
 		w.WriteHeader(http.StatusOK)

@@ -13,7 +13,7 @@ import (
 )
 
 func Routes(app *config.AppConfig) http.Handler {
-	db, err := sql.Open("postgres", "postgresql://postgres:root@localhost/todo?sslmode=disable")
+	db, err := sql.Open("postgres", "postgresql://postgres:root@localhost/ecom?sslmode=disable")
 	fmt.Println("connected to datbase!")
 	if err != nil {
 		log.Fatal(err)

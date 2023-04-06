@@ -10,11 +10,10 @@ type Task struct {
 }
 
 type User struct {
-	ID         int    `json:"id"`
-	UserName   string `json:"username"`
-	Password   string `json:"password"`
-	Statuscode int    `json:"status"`
-	Response   string `json:"response"`
+	ID       int    `json:"id"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 type Credentials struct {
 	Username string `json:"username"`
@@ -25,3 +24,10 @@ type APIError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
+
+// type User struct {
+// 	ID       int    `json:"id" validate:"required"`
+// 	Username string `json:"username" validate:"required"`
+// 	Password string `json:"password" validate:"required"`
+// 	Email    string `json:"email" validate:"required"`
+// }
